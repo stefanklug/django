@@ -285,7 +285,7 @@ body.popup .submit-row {
     color: #fff;
 }
 
-.inline-group .tabular fieldset.module {
+.inline-group .tabular > fieldset.module {
     border: none;
     border-bottom: 1px solid #ddd;
 }
@@ -356,6 +356,26 @@ body.popup .submit-row {
     padding-left: 14px;
     font-size: 11px;
     outline: 0; /* Remove dotted border around link */
+}
+
+.nested-inline {
+	margin: 10px;
+}
+
+td > .nested-inline {
+	margin: 0px;
+}
+
+.nested-inline-bottom-border {
+	border-bottom: 1px solid #DDDDDD;
+}
+
+.no-bottom-border.row1 > td {
+	border-bottom: solid #EDF3FE 1px;
+}
+
+.no-bottom-border.row2 > td {
+	border-bottom: solid white 1px;
 }
 
 .empty-form {

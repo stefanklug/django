@@ -1541,7 +1541,27 @@ information.
 
     The difference between these two is merely the template used to render
     them.
+    
+    .. versionadded:: 1.5
+    
+    You can also display inlines inside an inline. Suppose you have a third model::
+	
+         class Chapter(models.Model):
+            name = models.CharField(max_length=100)
+            book = models.ForeignKey(Book)
 
+    These inlines work exactly the same as normal inlines, but they are specified 
+    inside a ``InlineModelAdmin.inlines``::
+
+        class BookInline(admin.TabularInline):
+           model = Book
+           inlines = [
+            	ChapterInline,
+           ]
+
+        class ChapterInline(admin.StackedInline):
+    	   model = Chapter
+	
 ``InlineModelAdmin`` options
 -----------------------------
 
@@ -1570,6 +1590,10 @@ adds some of its own (the shared features are actually defined in the
 - :meth:`~ModelAdmin.has_add_permission`
 - :meth:`~ModelAdmin.has_change_permission`
 - :meth:`~ModelAdmin.has_delete_permission`
+
+.. versionadded:: 1.5
+
+- :meth:`~ModelAdmin.inlines`
 
 The ``InlineModelAdmin`` class adds:
 

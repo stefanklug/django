@@ -2,6 +2,7 @@ from django.test import LiveServerTestCase
 from django.utils.importlib import import_module
 from django.utils.unittest import SkipTest
 from django.utils.translation import ugettext as _
+from selenium import webdriver
 
 class AdminSeleniumWebDriverTestCase(LiveServerTestCase):
     webdriver_class = 'selenium.webdriver.firefox.webdriver.WebDriver'
@@ -13,6 +14,7 @@ class AdminSeleniumWebDriverTestCase(LiveServerTestCase):
             module, attr = cls.webdriver_class.rsplit('.', 1)
             mod = import_module(module)
             WebDriver = getattr(mod, attr)
+            #Avoid startup screen
             cls.selenium = WebDriver()
         except Exception as e:
             raise SkipTest('Selenium webdriver "%s" not installed or not '

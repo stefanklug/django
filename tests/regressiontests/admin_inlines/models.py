@@ -191,3 +191,52 @@ class Profile(models.Model):
     collection = models.ForeignKey(ProfileCollection, blank=True, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    
+class Country(models.Model):
+    name = models.CharField(max_length=100)
+    
+    def __unicode__(self):
+        return self.name
+
+class City(models.Model):
+    name = models.CharField(max_length=100)
+    population = models.IntegerField()
+    country = models.ForeignKey(Country)
+    
+    def __unicode__(self):
+        return self.name
+
+class Building(models.Model):
+    name = models.CharField(max_length=100)
+    city = models.ForeignKey(City)
+    
+    def __unicode__(self):
+        return self.name
+
+class Appartement(models.Model):
+    name = models.CharField(max_length=100)
+    building = models.ForeignKey(Building)
+    
+    def __unicode__(self):
+        return self.name
+
+class Inhabitant(models.Model):
+    name = models.CharField(max_length=100)
+    appartement = models.ForeignKey(Appartement)
+    
+    def __unicode__(self):
+        return self.name
+
+class Furniture(models.Model):
+    name = models.CharField(max_length=100)
+    inhabitant = models.ForeignKey(Inhabitant)
+    
+    def __unicode__(self):
+        return self.name
+    
+class Monument(models.Model):
+    name = models.CharField(max_length=100)
+    city = models.ForeignKey(City)
+    
+    def __unicode__(self):
+        return self.name
