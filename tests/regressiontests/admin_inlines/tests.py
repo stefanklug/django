@@ -8,11 +8,11 @@ from django.test import TestCase
 from django.test.utils import override_settings
 
 # local test models
-from .admin import InnerInline, TitleInline, site
+from .admin import InnerInline
 from .models import (Holder, Inner, Holder2, Inner2, Holder3, Inner3, Person,
     OutfitItem, Fashionista, Teacher, Parent, Child, Author, Book, Profile,
     ProfileCollection, ParentModelWithCustomPk, ChildModel1, ChildModel2,
-    Sighting, Title)
+    Sighting, Country, City, Building, Appartement, Inhabitant, Furniture, Monument)
 
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
@@ -588,15 +588,19 @@ class SeleniumFirefoxTests(AdminSeleniumWebDriverTestCase):
             'form#profilecollection_form tr.dynamic-profile_set#profile_set-1 td.delete a').click()
         self.selenium.find_element_by_css_selector(
             'form#profilecollection_form tr.dynamic-profile_set#profile_set-2 td.delete a').click()
-        # Verify that they're gone and that the IDs have been re-sequenced
+        # Verify that they're gone
         self.assertEqual(len(self.selenium.find_elements_by_css_selector(
             '#profile_set-group table tr.dynamic-profile_set')), 3)
         self.assertEqual(len(self.selenium.find_elements_by_css_selector(
             'form#profilecollection_form tr.dynamic-profile_set#profile_set-0')), 1)
         self.assertEqual(len(self.selenium.find_elements_by_css_selector(
-            'form#profilecollection_form tr.dynamic-profile_set#profile_set-1')), 1)
+            'form#profilecollection_form tr.dynamic-profile_set#profile_set-1')), 0)
         self.assertEqual(len(self.selenium.find_elements_by_css_selector(
-            'form#profilecollection_form tr.dynamic-profile_set#profile_set-2')), 1)
+            'form#profilecollection_form tr.dynamic-profile_set#profile_set-2')), 0)
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            'form#profilecollection_form tr.dynamic-profile_set#profile_set-3')), 1)
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            'form#profilecollection_form tr.dynamic-profile_set#profile_set-4')), 1)
 
     def test_alternating_rows(self):
         self.admin_login(username='super', password='secret')
@@ -611,9 +615,193 @@ class SeleniumFirefoxTests(AdminSeleniumWebDriverTestCase):
         self.assertEqual(len(self.selenium.find_elements_by_css_selector(
             "%s.row1" % row_selector)), 2, msg="Expect two row1 styled rows")
         self.assertEqual(len(self.selenium.find_elements_by_css_selector(
-            "%s.row2" % row_selector)), 1, msg="Expect one row2 styled row")
+            "%s.row2" % row_selector)), 1, msg="Expect one row2 styled row")    
 
+    def test_add_nested_inlines(self):
+        self.admin_login(username='super', password='secret')
+        self.selenium.get('%s%s' % (self.live_server_url,
+            '/admin/admin_inlines/country/add/'))
+        
+        # Add some cities
+        self.selenium.find_element_by_link_text('Add another City').click()
+        self.selenium.find_element_by_link_text('Add another City').click()
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-1 .nested-inline-row .nested-inline-row #city_set-1-building_set-0-appartement_set-0-inhabitant_set-0 " +
+            "#city_set-1-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0")), 1, "Expected furniture set in second city");
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-2 .nested-inline-row #city_set-2-building_set-0-appartement_set-0-inhabitant_set-0 " +
+            "#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0")), 1, "Expected furniture set in third city");
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-1 #city_set-1-monument_set-0")), 1, "Expected monument set in second city");
+        # Add monument in first city
+        self.selenium.find_elements_by_css_selector('#city_set-0-monument_set-group > .add-row a')[0].click()
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-0 #city_set-0-monument_set-1")), 1, "Expected second monument in first city")
+        # Add building in second city
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-0 ~ .add-row a')[0].click()
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-1 #city_set-1-building_set-1")), 1, "Expected second building in second city");
+        # Add apartement in second building of second city
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-1-appartement_set-0 ~ .add-row a')[0].click()
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-1 .nested-inline-row #city_set-1-building_set-1-appartement_set-1")), 1, "Expected second appartement in second building of second city");
+        # Add inhabitants in third city
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0 ~ .add-row a')[0].click()
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-2 .nested-inline-row .nested-inline-row #city_set-2-building_set-0-appartement_set-0-inhabitant_set-1")), 1, "Expected second inhabitant in third city");
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-2 .nested-inline-row .nested-inline-row #city_set-2-building_set-0-appartement_set-0-inhabitant_set-2")), 1, "Expected third inhabitant in third city");
+        # Add furniture in first city
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(
+            "#city_set-0 .nested-inline-row .nested-inline-row #city_set-0-building_set-0-appartement_set-0-inhabitant_set-0 "+
+            "#city_set-0-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-1")), 1, "Expected second furniture in first city");        
+    
+    def test_delete_nested_inlines(self):
+        self.admin_login(username='super', password='secret')
+        self.selenium.get('%s%s' % (self.live_server_url,
+            '/admin/admin_inlines/country/add/'))
+        
+        # Add 2 cities
+        self.selenium.find_element_by_link_text('Add another City').click()
+        self.selenium.find_element_by_link_text('Add another City').click()
+        # Delete second city
+        self.selenium.find_elements_by_css_selector('#city_set-1 > h3 a.inline-deletelink')[0].click()
+        # Check if only two cities
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(".dynamic-city_set")), 2, "Expected 2 cities")
+        # Add 2 appartements in first city
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-0 ~ .add-row a')[0].click()
+        # Delete second appartement
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-1 > td.delete a')[0].click()
+        # Check if only two appartements in first city
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(".dynamic-city_set-0-building_set-0-appartement_set")), 2, "Expected 2 Inhabitants")
+        # Check that nested inlines have also been deleted
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(".dynamic-city_set-0-building_set-0-appartement_set")), 2, "Expected 2 Inhabitants")
+        # Add 4 furniture in second city
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        # Delete second and fourth
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-1 > h3 a.inline-deletelink')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-3 > h3 a.inline-deletelink')[0].click()
+        # Check if only 3 furniture
+        self.assertEqual(len(self.selenium.find_elements_by_css_selector(".dynamic-city_set-2-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set")), 3, "Expected 3 furniture")
+    
+    def test_save_nested_inlines(self):
+        self.admin_login(username='super', password='secret')
+        self.selenium.get('%s%s' % (self.live_server_url,
+            '/admin/admin_inlines/country/add/'))
+        
+        # Add City
+        self.selenium.find_element_by_link_text('Add another City').click()
+        # Add Buildings
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-0 ~ .add-row a')[0].click()
+        # Add Appartements
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-1-appartement_set-0 ~ .add-row a')[0].click()
+        # Add Inhabitant
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-0-inhabitant_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-1-appartement_set-0-inhabitant_set-0 ~ .add-row a')[0].click()
+        # Add Furniture
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-1-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-1-appartement_set-1-inhabitant_set-0-furniture_set-0 ~ .add-row a')[0].click()
+        # Add Monument
+        self.selenium.find_elements_by_css_selector('#city_set-0-monument_set-0 ~ .add-row a')[0].click()
+        self.selenium.find_elements_by_css_selector('#city_set-1-monument_set-0 ~ .add-row a')[0].click()
+        # Input Data
+        self.selenium.find_element_by_css_selector('#id_name').send_keys('Belgium')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-name').send_keys('C 1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-population').send_keys('10')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-name').send_keys('B 1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-0-name').send_keys('A 1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-0-inhabitant_set-0-name').send_keys('I 1.1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0-name').send_keys('F 1.1.1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-0-inhabitant_set-1-name').send_keys('I 1.1.1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-0-inhabitant_set-1-furniture_set-0-name').send_keys('F 1.1.1.2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-1-name').send_keys('A 1.1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-1-inhabitant_set-0-name').send_keys('I 1.1.2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-1-inhabitant_set-0-furniture_set-0-name').send_keys('F 1.1.2.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-0-appartement_set-1-inhabitant_set-0-furniture_set-1-name').send_keys('F 1.1.2.1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-1-name').send_keys('B 1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-1-appartement_set-0-name').send_keys('A 1.2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-1-appartement_set-0-inhabitant_set-0-name').send_keys('I 1.2.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-building_set-1-appartement_set-0-inhabitant_set-0-furniture_set-0-name').send_keys('F 1.2.1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-monument_set-0-name').send_keys('M 1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-0-monument_set-1-name').send_keys('M 1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-name').send_keys('C 2')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-population').send_keys('10')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-0-name').send_keys('B 2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-0-appartement_set-0-name').send_keys('A 2.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-0-appartement_set-0-inhabitant_set-0-name').send_keys('I 2.1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-0-appartement_set-0-inhabitant_set-0-furniture_set-0-name').send_keys('F 2.1.1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-name').send_keys('B 2.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-0-name').send_keys('A 2.2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-0-inhabitant_set-0-name').send_keys('I 2.2.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-0-inhabitant_set-0-furniture_set-0-name').send_keys('F 2.2.1.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-0-inhabitant_set-1-name').send_keys('I 2.2.1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-0-inhabitant_set-1-furniture_set-0-name').send_keys('F 2.2.1.2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-1-name').send_keys('A 2.2.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-1-inhabitant_set-0-name').send_keys('I 2.2.2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-1-inhabitant_set-0-furniture_set-0-name').send_keys('F 2.2.2.1.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-building_set-1-appartement_set-1-inhabitant_set-0-furniture_set-1-name').send_keys('F 2.2.2.1.2')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-monument_set-0-name').send_keys('M 2.1')
+        self.selenium.find_element_by_css_selector('#id_city_set-1-monument_set-1-name').send_keys('M 2.2')
+        # Delete inhabitant 2.2.1.2
+        self.selenium.find_elements_by_css_selector('#city_set-1-building_set-1-appartement_set-0-inhabitant_set-1 > h3 a.inline-deletelink')[0].click()
+        # Delete furniture 1.1.2.1.2
+        self.selenium.find_elements_by_css_selector('#city_set-0-building_set-0-appartement_set-1-inhabitant_set-0-furniture_set-1 > h3 a.inline-deletelink')[0].click()
+        # Save
+        self.selenium.find_element_by_xpath('//input[@value="Save"]').click()
+        
+        try:
+            # Wait for the next page to be loaded.
+            self.wait_loaded_tag('body')
+        except TimeoutException:
+            # IE7 occasionnally returns an error "Internet Explorer cannot
+            # display the webpage" and doesn't load the next page. We just
+            # ignore it.
+            pass
 
+        # Check if saved correctly
+        self.assertEqual(Country.objects.all().count(), 1)
+        self.assertEqual(City.objects.get(name="C 1").country, Country.objects.get(name="Belgium"))
+        self.assertEqual(Building.objects.get(name="B 1.1").city, City.objects.get(name="C 1"))
+        self.assertEqual(Building.objects.get(name="B 1.2").city, City.objects.get(name="C 1"))
+        self.assertEqual(Building.objects.get(name="B 2.1").city, City.objects.get(name="C 2"))
+        self.assertEqual(Building.objects.get(name="B 2.2").city, City.objects.get(name="C 2"))
+        self.assertEqual(Appartement.objects.get(name="A 1.1.1").building, Building.objects.get(name="B 1.1"))
+        self.assertEqual(Appartement.objects.get(name="A 1.1.2").building, Building.objects.get(name="B 1.1"))
+        self.assertEqual(Appartement.objects.get(name="A 1.2.1").building, Building.objects.get(name="B 1.2"))
+        self.assertEqual(Appartement.objects.get(name="A 2.1.1").building, Building.objects.get(name="B 2.1"))
+        self.assertEqual(Appartement.objects.get(name="A 2.2.1").building, Building.objects.get(name="B 2.2"))
+        self.assertEqual(Appartement.objects.get(name="A 2.2.2").building, Building.objects.get(name="B 2.2"))
+        self.assertEqual(Inhabitant.objects.get(name="I 1.1.1.1").appartement, Appartement.objects.get(name="A 1.1.1"))
+        self.assertEqual(Inhabitant.objects.get(name="I 1.1.1.2").appartement, Appartement.objects.get(name="A 1.1.1"))
+        self.assertEqual(Inhabitant.objects.get(name="I 1.1.2.1").appartement, Appartement.objects.get(name="A 1.1.2"))
+        self.assertEqual(Inhabitant.objects.get(name="I 1.2.1.1").appartement, Appartement.objects.get(name="A 1.2.1"))
+        self.assertEqual(Inhabitant.objects.get(name="I 2.1.1.1").appartement, Appartement.objects.get(name="A 2.1.1"))
+        self.assertEqual(Inhabitant.objects.get(name="I 2.2.1.1").appartement, Appartement.objects.get(name="A 2.2.1"))
+        self.assertEqual(len(Inhabitant.objects.filter(name="I 2.2.1.2")), 0)
+        self.assertEqual(Inhabitant.objects.get(name="I 2.2.2.1").appartement, Appartement.objects.get(name="A 2.2.2"))
+        self.assertEqual(Furniture.objects.get(name="F 1.1.1.1.1").inhabitant, Inhabitant.objects.get(name="I 1.1.1.1"))
+        self.assertEqual(Furniture.objects.get(name="F 1.1.1.2.1").inhabitant, Inhabitant.objects.get(name="I 1.1.1.2"))
+        self.assertEqual(Furniture.objects.get(name="F 1.1.2.1.1").inhabitant, Inhabitant.objects.get(name="I 1.1.2.1"))
+        self.assertEqual(len(Furniture.objects.filter(name="F 1.1.2.1.2")), 0)
+        self.assertEqual(Furniture.objects.get(name="F 1.2.1.1.1").inhabitant, Inhabitant.objects.get(name="I 1.2.1.1"))
+        self.assertEqual(Furniture.objects.get(name="F 2.1.1.1.1").inhabitant, Inhabitant.objects.get(name="I 2.1.1.1"))
+        self.assertEqual(Furniture.objects.get(name="F 2.2.1.1.1").inhabitant, Inhabitant.objects.get(name="I 2.2.1.1"))
+        self.assertEqual(len(Furniture.objects.filter(name="F 2.2.1.2.1")), 0)
+        self.assertEqual(Furniture.objects.get(name="F 2.2.2.1.1").inhabitant, Inhabitant.objects.get(name="I 2.2.2.1"))
+        self.assertEqual(Furniture.objects.get(name="F 2.2.2.1.2").inhabitant, Inhabitant.objects.get(name="I 2.2.2.1"))
+        self.assertEqual(Monument.objects.get(name="M 1.1").city, City.objects.get(name="C 1"))
+        self.assertEqual(Monument.objects.get(name="M 1.2").city, City.objects.get(name="C 1"))
+        self.assertEqual(Monument.objects.get(name="M 2.1").city, City.objects.get(name="C 2"))
+        self.assertEqual(Monument.objects.get(name="M 2.2").city, City.objects.get(name="C 2"))
+    
 class SeleniumChromeTests(SeleniumFirefoxTests):
     webdriver_class = 'selenium.webdriver.chrome.webdriver.WebDriver'
 

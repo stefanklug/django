@@ -123,6 +123,34 @@ class ChildModel1Inline(admin.TabularInline):
 
 class ChildModel2Inline(admin.StackedInline):
     model = ChildModel2
+    
+class FurnitureInline(admin.StackedInline):
+    model = Furniture
+    extra = 1
+    
+class InhabitantInline(admin.StackedInline):
+    model = Inhabitant
+    extra = 1
+    inlines = [ FurnitureInline, ]
+    
+class AppartementInline(admin.TabularInline):
+    model = Appartement
+    extra = 1
+    inlines = [ InhabitantInline, ]
+    
+class MonumentInline(admin.StackedInline):
+    model = Monument
+    extra = 1
+    
+class BuildingInline(admin.TabularInline):
+    model = Building
+    extra = 1
+    inlines = [ AppartementInline, ]
+    
+class CityInline(admin.StackedInline):
+    model = City
+    extra = 1
+    inlines = [BuildingInline, MonumentInline, ]
 
 # admin for #19524
 class SightingInline(admin.TabularInline):
@@ -146,3 +174,10 @@ site.register(CapoFamiglia, inlines=[ConsigliereInline, SottoCapoInline])
 site.register(ProfileCollection, inlines=[ProfileInline])
 site.register(ParentModelWithCustomPk, inlines=[ChildModel1Inline, ChildModel2Inline])
 site.register(ExtraTerrestrial, inlines=[SightingInline])
+site.register(Country, inlines=[CityInline])
+site.register(City)
+site.register(Building)
+site.register(Monument)
+site.register(Appartement)
+site.register(Inhabitant)
+site.register(Furniture)
