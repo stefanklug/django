@@ -267,7 +267,7 @@ class BaseForm(object):
         self.cleaned_data = {}
         # If the form is permitted to be empty, and none of the form data has
         # changed from the initial data, short circuit any validation.
-        if self.empty_permitted and not self.has_changed():
+        if self.empty_permitted and not self.has_changed() and not self.dependency_has_changed():
             return
         self._clean_fields()
         self._clean_form()
@@ -321,6 +321,13 @@ class BaseForm(object):
         Returns True if data differs from initial.
         """
         return bool(self.changed_data)
+    
+    def dependency_has_changed(self):
+        """
+        Returns true, if any dependent form has changed. 
+        This is needed to force validation, even if this form wasn't changed but a dependent form
+        """
+        return False
 
     def _get_changed_data(self):
         if self._changed_data is None:

@@ -353,6 +353,13 @@ class BaseModelForm(BaseForm):
             self.instance.validate_unique(exclude=exclude)
         except ValidationError as e:
             self._update_errors(e.message_dict)
+            
+    def dependency_has_changed(self):
+        #check for the nested_formsets attribute, added by the admin app.
+        #TODO this should be generalized
+        if hasattr(self, 'nested_formsets'):
+            for f in self.nested_formsets:
+                return f.dependency_has_changed()
 
     def save(self, commit=True):
         """
@@ -639,8 +646,9 @@ class BaseModelFormSet(BaseFormSet):
     def save_new_objects(self, commit=True):
         self.new_objects = []
         for form in self.extra_forms:
-            if not form.has_changed():
+            if not form.has_changed() and not form.dependency_has_changed():
                 continue
+                    
             # If someone has marked an add form for deletion, don't save the
             # object.
             if self.can_delete and self._should_delete_form(form):
