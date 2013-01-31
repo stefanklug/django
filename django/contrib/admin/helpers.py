@@ -244,6 +244,9 @@ class InlineAdminFormSet(object):
             media = media + fs.media
         return media
     media = property(_media)
+    
+    def dependency_has_changed(self):
+        return self.formset.dependency_has_changed()
 
 class InlineAdminForm(AdminForm):
     """
