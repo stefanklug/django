@@ -986,7 +986,13 @@ class ModelAdmin(BaseModelAdmin):
             for nested_inline in inline.get_inline_instances(request):
                 InlineFormSet = nested_inline.get_formset(request, form.instance)
                 prefix = "%s-%s" % (form.prefix, InlineFormSet.get_default_prefix())
-                if request.method == 'POST':
+                
+                #because of form nesting with extra=0 it might happen, that the post data doesn't include values for the formset.
+                #This would lead to a Exception, because the ManagementForm construction fails. So we check if there is data available, and otherwise create an empty form
+                keys = request.POST.keys()
+                has_params = any(s.startswith(prefix) for s in keys)
+                if request.method == 'POST' and has_params:
+                    
                     nested_formset = InlineFormSet(request.POST, request.FILES, 
                                                    instance=form.instance, 
                                                    prefix=prefix, queryset=nested_inline.queryset(request))
@@ -1035,10 +1041,6 @@ class ModelAdmin(BaseModelAdmin):
             for form in formset:
                 if hasattr(form, 'nested_formsets'):
                     if not self.all_valid_with_nesting(form.nested_formsets):
-                        return False
-                    # Here be dragons :(
-                    if not form.cleaned_data:
-                        form._errors["__all__"] = form.error_class([u"Parent object must be created when creating nested inlines."])
                         return False
         return True
             

@@ -313,6 +313,13 @@ class BaseFormSet(object):
         Returns true if data in any form differs from initial.
         """
         return any(form.has_changed() for form in self)
+    
+    def dependency_has_changed(self):
+        for form in self.forms:
+            if form.has_changed() or form.dependency_has_changed():
+                return True
+        return False
+        
 
     def add_fields(self, form, index):
         """A hook for adding extra fields on to each form instance."""
