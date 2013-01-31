@@ -745,7 +745,7 @@ class ModelAdmin(BaseModelAdmin):
         """
         obj.delete()
 
-    def save_formset(self, request, formset, change):
+    def save_formset(self, request, form, formset, change):
         """
         Given an inline formset save it to the database.
         """
@@ -753,7 +753,7 @@ class ModelAdmin(BaseModelAdmin):
         for form in formset.forms:
             if hasattr(form, 'nested_formsets'):
                 for nested_formset in form.nested_formsets:
-                    self.save_formset(request, nested_formset, change)
+                    self.save_formset(request, form, nested_formset, change)
                     
 
     def save_related(self, request, form, formsets, change):
@@ -766,7 +766,7 @@ class ModelAdmin(BaseModelAdmin):
         """
         form.save_m2m()
         for formset in formsets:
-            self.save_formset(request, formset, change=change)
+            self.save_formset(request, form, formset, change=change)
 
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
         opts = self.model._meta
