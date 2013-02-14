@@ -298,8 +298,12 @@
 		// update options
 		// Normalize prefix to something we can rely on
 		var normalized_parent_formset_prefix = parent_formset_prefix.replace(/[-][0-9][-]/g, "-0-");
+		
 		// Check if the form should have nested formsets
-		var nested_inlines = $('#' + normalized_parent_formset_prefix + "-group ." + normalized_parent_formset_prefix + "-nested-inline").not('.cloned');
+		// This is horribly hackish. It tries to collect one set of nested inlines from already existing rows
+		var context = $('#' + normalized_parent_formset_prefix + "-group");
+		var search_space = context.find("."+normalized_parent_formset_prefix + "-not-nested").first().nextUntil("."+normalized_parent_formset_prefix + "-not-nested");
+		var nested_inlines = search_space.find("." + normalized_parent_formset_prefix + "-nested-inline").not('.cloned');
 		nested_inlines.each(function() {
 			// prefixes for the nested formset
 			var normalized_formset_prefix = $(this).attr('id').split('-group')[0];
