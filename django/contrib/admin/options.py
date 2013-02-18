@@ -1005,6 +1005,9 @@ class ModelAdmin(BaseModelAdmin):
             form.nested_formsets = nested_formsets
             
     def wrap_nested_inline_formsets(self, request, inline, formset):
+        """wraps each formset in a helpers.InlineAdminFormset.
+        @TODO someone with more inside knowledge should write done why this is done
+        """
         media = None
         def get_media(extra_media):
             if media:

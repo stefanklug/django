@@ -313,17 +313,32 @@
 			// Find the normalized formset and clone it
 			var template = $("#" + normalized_formset_prefix + "-group").clone();
 			template.addClass('cloned');
+			
+			//do some cleanup
 			if (template.children().first().hasClass('tabular')) {
-				// Template is tabular
+				//remove all existing rows
 				template.find(".form-row").not(".empty-form").remove();
 				template.find(".nested-inline-row").remove();
-				// Make a new form
-				template_form = template.find("#" + normalized_formset_prefix + "-empty")
-				new_form = template_form.clone().removeClass(options.emptyCssClass).addClass("dynamic-" + formset_prefix);
-				new_form.insertBefore(template_form);
-				// Update Form Properties
-				template.find('#id_' + formset_prefix + '-TOTAL_FORMS').val(1);
-				update_props(template, normalized_formset_prefix, formset_prefix);
+			} else {
+				//stacked cleanup
+				template.find(".inline-related").not(".empty-form").remove();
+			}
+			
+			//process the template and update managamenet variables
+			//create a copy of the -empty row
+			template_form = template.find("#" + normalized_formset_prefix + "-empty")
+			new_form = template_form.clone().removeClass(options.emptyCssClass).addClass("dynamic-" + formset_prefix);
+			new_form.insertBefore(template_form);
+			// Update Form Properties
+			template.find('#id_' + normalized_formset_prefix + '-INITIAL_FORMS').val(0);
+			template.find('#id_' + normalized_formset_prefix + '-TOTAL_FORMS').val(1);
+			update_props(template, normalized_formset_prefix, formset_prefix);
+			
+			//after creating the cloned entries, remove the fk and id values, because these don't exist yet
+			template.find('.original input').empty();
+
+			//postprocess stacked/tabular
+			if (template.children().first().hasClass('tabular')) {
 				var add_text = template.find('.add-row').text();
 				template.find('.add-row').remove();
 				template.find('.tabular.inline-related tbody tr.' + formset_prefix + '-not-nested').tabularFormset({
@@ -332,6 +347,7 @@
 					addText : add_text,
 					deleteText : options.deleteText
 				});
+				
 				// Create the nested formset
 				var nested_formsets = create_nested_formset(formset_prefix, 0, options, false);
 				if (nested_formsets.length) {
@@ -349,18 +365,7 @@
 							}).html($(this))))));
 				});
 			} else {
-				// Template is stacked
-				// Create the nested formset
-				var nested_formsets = create_nested_formset(formset_prefix, 0, options, true);
-				template.find(".inline-related").not(".empty-form").remove();
-				// Make a new form
-				template_form = template.find("#" + normalized_formset_prefix + "-empty")
-				new_form = template_form.clone().removeClass(options.emptyCssClass).addClass("dynamic-" + formset_prefix);
-				new_form.insertBefore(template_form);
-				// Update Form Properties
-				template.find('#id_' + normalized_formset_prefix + '-TOTAL_FORMS').val(1);
 				new_form.find('.inline_label').text('#1');
-				update_props(template, normalized_formset_prefix, formset_prefix);
 				var add_text = template.find('.add-row').text();
 				template.find('.add-row').remove();
 				template.find(".inline-related").stackedFormset({
@@ -369,13 +374,19 @@
 					addText : add_text,
 					deleteText : options.deleteText
 				});
+				
+				var nested_formsets = create_nested_formset(formset_prefix, 0, options, true);
 				nested_formsets.each(function() {
 					new_form.append($(this));
 				});
 			}
+			
+			
+			
 			if (add_bottom_border) {
 				template = template.add($('<div class="nested-inline-bottom-border">'));
 			}
+			
 			if (formsets.length) {
 				formsets = formsets.add(template);
 			} else {
