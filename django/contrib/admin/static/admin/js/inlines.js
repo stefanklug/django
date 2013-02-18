@@ -327,7 +327,7 @@
 	function addRow(options) {
 		var nextIndex = get_no_forms(options.prefix);
 		
-		row = insertNewRow(options.prefix, options);
+		var row = insertNewRow(options.prefix, options);
 
 		updateAddButton(options.prefix);
 
