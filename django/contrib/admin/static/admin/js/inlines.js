@@ -29,10 +29,8 @@
 		$this.each(function(i) {
 			$(this).not("." + options.emptyCssClass).addClass(options.formCssClass);
 		});
-		// Only show the add button if we are allowed to add more items,
-		// note that max_num = None translates to a blank string.
-		var showAddButton = get_max_forms(options.prefix) === '' || (get_max_forms(options.prefix) - get_no_forms(options.prefix)) > 0;
-		if ($this.length && showAddButton) {
+		
+		if (isAddButtonVisible(options)) {
 			var addButton;
 			if ($this.attr("tagName") == "TR") {
 				// If forms are laid out as table rows, insert the
@@ -47,7 +45,6 @@
 			}
 			addButton.click(function(e) {
 				e.preventDefault();
-				
 				addRow(options);
 			});
 		}
@@ -125,12 +122,16 @@
 			deleteCssClass : "inline-deletelink",
 			deleteText : options.deleteText,
 			emptyCssClass : "empty-form",
-			removed : alternatingRows,
+			removed : function(row) {
+				alternatingRows(row);
+				if(options.removed) options.removed(row);
+			},
 			added : function(row) {
 				initPrepopulatedFields(row);
 				reinitDateTimeShortCuts();
 				updateSelectFilter();
 				alternatingRows(row);
+				if(options.added) options.added(row);
 			}
 		});
 
@@ -189,12 +190,16 @@
 			deleteCssClass : "inline-deletelink",
 			deleteText : options.deleteText,
 			emptyCssClass : "empty-form",
-			removed : update_inline_labels,
+			removed : function(row) {
+				update_inline_labels(row);
+				if(options.removed) options.removed(row);
+			},
 			added : (function(row) {
 				initPrepopulatedFields(row);
 				reinitDateTimeShortCuts();
 				updateSelectFilter();
 				update_inline_labels(row.parent());
+				if(options.added) options.added(row);
 			})
 		});
 
@@ -222,7 +227,10 @@
 			// = "parent_formset_prefix"-"next_form_id"-"nested_inline_name"_set
 			// Find the normalized formset and clone it
 			var template = $(this).clone();
-			//template.addClass('cloned');
+			
+			//get the options that were used to create the source formset
+			var options = $(this).data('django_formset');
+			options.prefix = formset_prefix;
 			
 			var isTabular = template.find('#'+normalized_formset_prefix+'-empty').is('tr');
 			
@@ -236,7 +244,7 @@
 				template.find(".inline-related").not(".empty-form").remove();
 			}
 			//remove other unnecessary things
-			template.find('.add-row').remove();
+			template.find('.'+options.addCssClass).remove();
 			
 			//replace the cloned prefix with the new one
 			update_props(template, normalized_formset_prefix, formset_prefix);
@@ -246,9 +254,7 @@
 			//remove the fk and id values, because these don't exist yet
 			template.find('.original').empty();
 			
-			//get the options that were used to create the source formset
-			var options = $(this).data('django_formset');
-			options.prefix = formset_prefix;
+			
 
 			//postprocess stacked/tabular
 			if (isTabular) {
@@ -311,8 +317,8 @@
 
 	// This return the maximum amount of forms in the given formset
 	function get_max_forms(formset_prefix) {
-		var max_forms = $("#id_" + formset_prefix + "-MAX_FORMS").attr("autocomplete", "off").val();
-		if ( typeof max_forms == 'undefined') {
+		var max_forms = $("#id_" + formset_prefix + "-MAX_NUM_FORMS").attr("autocomplete", "off").val();
+		if ( typeof max_forms == 'undefined' || max_forms == '') {
 			return '';
 		}
 		return parseInt(max_forms);
@@ -323,10 +329,7 @@
 		
 		row = insertNewRow(options.prefix, options);
 
-		// Hide add button in case we've hit the max, except we want to add infinitely
-		if ((get_max_forms(options.prefix) !== '') && (get_max_forms(options.prefix) - get_no_forms(options.prefix)) <= 0) {
-			addButton.parent().hide();
-		}
+		updateAddButton(options.prefix);
 
 		// Add delete button handler
 		row.find("a." + options.deleteCssClass).click(function(e) {
@@ -411,6 +414,21 @@
 			el.name = el.name.replace(id_regex, replacement);
 		}
 	};
+	
+	/** show or hide the addButton **/
+	function updateAddButton(options) {
+		// Hide add button in case we've hit the max, except we want to add infinitely
+		var btn = $("#" + options.prefix + "-empty").parent().children('.'+options.addCssClass);
+		if (isAddButtonVisible(options)) {
+			btn.hide();
+		} else {
+			btn.show();
+		}
+	}
+	
+	function isAddButtonVisible(options) {
+		return !(get_max_forms(options.prefix) !== '' && (get_max_forms(options.prefix) - get_no_forms(options.prefix)) <= 0);
+	}
 })(django.jQuery);
 
 // TODO:
