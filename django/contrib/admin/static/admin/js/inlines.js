@@ -19,20 +19,11 @@
 		var options = $.extend({}, $.fn.formset.defaults, opts);
 		var $this = $(this);
 		var $parent = $this.parent();
-		var updateElementIndex = function(el, prefix, ndx) {
-			var id_regex = new RegExp("(" + prefix + "-(\\d+|__prefix__))");
-			var replacement = prefix + "-" + ndx;
-			if ($(el).attr("for")) {
-				$(el).attr("for", $(el).attr("for").replace(id_regex, replacement));
-			}
-			if (el.id) {
-				el.id = el.id.replace(id_regex, replacement);
-			}
-			if (el.name) {
-				el.name = el.name.replace(id_regex, replacement);
-			}
-		};
 		var nextIndex = get_no_forms(options.prefix);
+		
+		//store the options. This is needed for nested inlines, to recreate the same form
+		var group = $this.closest('.inline-group');
+		group.data('django_formset', options);
 
 		// Add form classes for dynamic behaviour
 		$this.each(function(i) {
@@ -56,91 +47,8 @@
 			}
 			addButton.click(function(e) {
 				e.preventDefault();
-				var nextIndex = get_no_forms(options.prefix);
-				var template = $("#" + options.prefix + "-empty");
-				var row = template.clone(true);
-				row.removeClass(options.emptyCssClass).addClass(options.formCssClass).attr("id", options.prefix + "-" + nextIndex);
-				if (row.is("tr")) {
-					// If the forms are laid out in table rows, insert
-					// the remove button into the last table cell:
-					row.children(":last").append('<div><a class="' + options.deleteCssClass + '" href="javascript:void(0)">' + options.deleteText + "</a></div>");
-				} else if (row.is("ul") || row.is("ol")) {
-					// If they're laid out as an ordered/unordered list,
-					// insert an <li> after the last list item:
-					row.append('<li><a class="' + options.deleteCssClass + '" href="javascript:void(0)">' + options.deleteText + "</a></li>");
-				} else {
-					// Otherwise, just insert the remove button as the
-					// last child element of the form's container:
-					row.children(":first").append('<span><a class="' + options.deleteCssClass + '" href="javascript:void(0)">' + options.deleteText + "</a></span>");
-				}
-				row.find("*").each(function() {
-					updateElementIndex(this, options.prefix, nextIndex);
-				});
-				// when adding something from a cloned formset the id is the same
-
-				// Insert the new form when it has been fully edited
-				row.insertBefore($(template));
-
-				// Update number of total forms
-				change_no_forms(options.prefix, true);
-
-				// Hide add button in case we've hit the max, except we want to add infinitely
-				if ((get_max_forms(options.prefix) !== '') && (get_max_forms(options.prefix) - get_no_forms(options.prefix)) <= 0) {
-					addButton.parent().hide();
-				}
-
-				// The delete button of each row triggers a bunch of other things
-				row.find("a." + options.deleteCssClass).click(function(e) {
-					e.preventDefault();
-					// Find the row that will be deleted by this button
-					var row = $(this).parents("." + options.formCssClass);
-					// Remove the parent form containing this button:
-					var formset_to_update = row.parent();
-					while (row.next().hasClass('nested-inline-row')) {
-						row.next().remove();
-					}
-					row.remove();
-					change_no_forms(options.prefix, false);
-					// If a post-delete callback was provided, call it with the deleted form:
-					if (options.removed) {
-						options.removed(formset_to_update);
-					}
-
-				});
-
-				if (row.is("tr")) {
-					// If the forms are laid out in table rows, insert
-					// the remove button into the last table cell:
-					// Insert the nested formsets into the new form
-					nested_formsets = create_nested_formset(options.prefix, nextIndex, options, false);
-					if (nested_formsets.length) {
-						row.addClass("no-bottom-border");
-					}
-					nested_formsets.each(function() {
-						if (!$(this).next()) {
-							border_class = "";
-						} else {
-							border_class = " no-bottom-border";
-						}
-						($('<tr class="nested-inline-row' + border_class + '">').html(($('<td>', {
-									colspan : '100%'
-								}).html($(this))))).insertBefore($(template));
-					});
-				} else {
-					// stacked
-					// Insert the nested formsets into the new form
-					nested_formsets = create_nested_formset(options.prefix, nextIndex, options, true);
-					nested_formsets.each(function() {
-						row.append($(this));
-					});
-				}
-
-				// If a post-add callback was supplied, call it with the added form:
-				if (options.added) {
-					options.added(row);
-				}
-
-				nextIndex = nextIndex + 1;
+				
+				addRow(options);
 			});
 		}
 		return this;
@@ -158,7 +66,7 @@
 		added : null, // Function called each time a new form is added
 		removed : null // Function called each time a form is deleted
 	};
-
+	
 	// Tabular inlines ---------------------------------------------------------
 	$.fn.tabularFormset = function(options) {
 		var $rows = $(this);
@@ -293,108 +201,75 @@
 		return $rows;
 	};
 
-	function create_nested_formset(parent_formset_prefix, next_form_id, options, add_bottom_border) {
-		var formsets = $(false);
-		// update options
-		// Normalize prefix to something we can rely on
-		var normalized_parent_formset_prefix = parent_formset_prefix.replace(/[-][0-9][-]/g, "-0-");
+	function create_nested_formsets(parentPrefix, rowId) {
+		// we use the first formset as template. so replace every index by 0
+		var sourceParentPrefix = parentPrefix.replace(/[-][0-9][-]/g, "-0-");
+		
+		var row_prefix = parentPrefix+'-'+rowId;
+		var row = $('#'+row_prefix);
 		
 		// Check if the form should have nested formsets
-		// This is horribly hackish. It tries to collect one set of nested inlines from already existing rows
-		var context = $('#' + normalized_parent_formset_prefix + "-group");
-		var search_space = context.find("."+normalized_parent_formset_prefix + "-not-nested").first().nextUntil("."+normalized_parent_formset_prefix + "-not-nested");
-		var nested_inlines = search_space.find("." + normalized_parent_formset_prefix + "-nested-inline").not('.cloned');
-		nested_inlines.each(function() {
+		// This is horribly hackish. It tries to collect one set of nested inlines from already existing rows and clone these
+		var search_space = $("#"+sourceParentPrefix+'-0').nextUntil("."+sourceParentPrefix + "-not-nested");
+		
+		//all nested inlines
+		var nested_inlines = search_space.find("." + sourceParentPrefix + "-nested-inline");
+		nested_inlines.each(function(index) {
 			// prefixes for the nested formset
 			var normalized_formset_prefix = $(this).attr('id').split('-group')[0];
 			// = "parent_formset_prefix"-0-"nested_inline_name"_set
-			var formset_prefix = normalized_formset_prefix.replace(normalized_parent_formset_prefix + "-0", parent_formset_prefix + "-" + next_form_id);
+			var formset_prefix = normalized_formset_prefix.replace(sourceParentPrefix + "-0", row_prefix);
 			// = "parent_formset_prefix"-"next_form_id"-"nested_inline_name"_set
 			// Find the normalized formset and clone it
-			var template = $("#" + normalized_formset_prefix + "-group").clone();
-			template.addClass('cloned');
+			var template = $(this).clone();
+			//template.addClass('cloned');
 			
-			//do some cleanup
-			if (template.children().first().hasClass('tabular')) {
-				//remove all existing rows
+			var isTabular = template.find('#'+normalized_formset_prefix+'-empty').is('tr');
+			
+			//remove all existing rows from the clone
+			if (isTabular) {
+				//tabular
 				template.find(".form-row").not(".empty-form").remove();
 				template.find(".nested-inline-row").remove();
 			} else {
 				//stacked cleanup
 				template.find(".inline-related").not(".empty-form").remove();
 			}
+			//remove other unnecessary things
+			template.find('.add-row').remove();
 			
-			//process the template and update managamenet variables
-			//create a copy of the -empty row
-			template_form = template.find("#" + normalized_formset_prefix + "-empty")
-			new_form = template_form.clone().removeClass(options.emptyCssClass).addClass("dynamic-" + formset_prefix);
-			new_form.insertBefore(template_form);
-			// Update Form Properties
-			template.find('#id_' + normalized_formset_prefix + '-INITIAL_FORMS').val(0);
-			template.find('#id_' + normalized_formset_prefix + '-TOTAL_FORMS').val(1);
+			//replace the cloned prefix with the new one
 			update_props(template, normalized_formset_prefix, formset_prefix);
+			//reset update formset management variables
+			template.find('#id_' + formset_prefix + '-INITIAL_FORMS').val(0);
+			template.find('#id_' + formset_prefix + '-TOTAL_FORMS').val(1);
+			//remove the fk and id values, because these don't exist yet
+			template.find('.original').empty();
 			
-			//after creating the cloned entries, remove the fk and id values, because these don't exist yet
-			template.find('.original input').empty();
+			//get the options that were used to create the source formset
+			var options = $(this).data('django_formset');
+			options.prefix = formset_prefix;
 
 			//postprocess stacked/tabular
-			if (template.children().first().hasClass('tabular')) {
-				var add_text = template.find('.add-row').text();
-				template.find('.add-row').remove();
-				template.find('.tabular.inline-related tbody tr.' + formset_prefix + '-not-nested').tabularFormset({
-					prefix : formset_prefix,
-					adminStaticPrefix : options.adminStaticPrefix,
-					addText : add_text,
-					deleteText : options.deleteText
-				});
-				
-				// Create the nested formset
-				var nested_formsets = create_nested_formset(formset_prefix, 0, options, false);
-				if (nested_formsets.length) {
-					template.find(".form-row").addClass('no-bottom-border');
-				}
-				// Insert nested formsets
-				nested_formsets.each(function() {
-					if (!$(this).next()) {
-						border_class = "";
-					} else {
-						border_class = " no-bottom-border";
-					}
-					template.find("#" + formset_prefix + "-empty").before(($('<tr class="nested-inline-row' + border_class + '">').html(($('<td>', {
-								colspan : '100%'
-							}).html($(this))))));
-				});
+			if (isTabular) {
+				var formset = template.find('.tabular.inline-related tbody tr.' + formset_prefix + '-not-nested').tabularFormset(options);
+				var border_class = (index+1 < nested_inlines.length) ? ' no-bottom-border' : '';
+				var wrapped = $('<tr class="nested-inline-row' + border_class + '"/>').html($('<td colspan="100%"/>').html(template));
+				//insert the formset after the row
+				row.after(wrapped);
 			} else {
-				new_form.find('.inline_label').text('#1');
-				var add_text = template.find('.add-row').text();
-				template.find('.add-row').remove();
-				template.find(".inline-related").stackedFormset({
-					prefix : formset_prefix,
-					adminStaticPrefix : options.adminStaticPrefix,
-					addText : add_text,
-					deleteText : options.deleteText
-				});
+				var formset = template.find(".inline-related").stackedFormset(options);
 				
-				var nested_formsets = create_nested_formset(formset_prefix, 0, options, true);
-				nested_formsets.each(function() {
-					new_form.append($(this));
-				});
+				row.after(template);
 			}
 			
-			
-			
-			if (add_bottom_border) {
-				template = template.add($('<div class="nested-inline-bottom-border">'));
-			}
-			
-			if (formsets.length) {
-				formsets = formsets.add(template);
-			} else {
-				formsets = template;
-			}
+			//add a empty row. This will in turn create the nested formsets
+			addRow(options);
 		});
-		return formsets;
+		
+		return nested_inlines.length;
 	};
+	
 
 	function update_props(template, normalized_formset_prefix, formset_prefix) {
 		// Fix template id
@@ -413,31 +288,7 @@
 				this.name = this.name.replace(normalized_formset_prefix, formset_prefix);
 			}
 		});
-		// fix __prefix__ where needed
-		prefix_fix = template.find(".inline-related").first();
-		nextIndex = get_no_forms(formset_prefix);
-		if (prefix_fix.hasClass('tabular')) {
-			// tabular
-			prefix_fix = prefix_fix.find('.form-row').first();
-			prefix_fix.attr('id', prefix_fix.attr('id').replace('-empty', '-' + nextIndex));
-		} else {
-			// stacked
-			prefix_fix.attr('id', prefix_fix.attr('id').replace('-empty', '-' + nextIndex));
-		}
-		prefix_fix.find('*').each(function() {
-			if ($(this).attr("for")) {
-				$(this).attr("for", $(this).attr("for").replace('__prefix__', '0'));
-			}
-			if ($(this).attr("class")) {
-				$(this).attr("class", $(this).attr("class").replace('__prefix__', '0'));
-			}
-			if (this.id) {
-				this.id = this.id.replace('__prefix__', '0');
-			}
-			if (this.name) {
-				this.name = this.name.replace('__prefix__', '0');
-			}
-		});
+		
 	};
 
 	// This returns the amount of forms in the given formset
@@ -465,6 +316,100 @@
 			return '';
 		}
 		return parseInt(max_forms);
+	};
+	
+	function addRow(options) {
+		var nextIndex = get_no_forms(options.prefix);
+		
+		row = insertNewRow(options.prefix, options);
+
+		// Hide add button in case we've hit the max, except we want to add infinitely
+		if ((get_max_forms(options.prefix) !== '') && (get_max_forms(options.prefix) - get_no_forms(options.prefix)) <= 0) {
+			addButton.parent().hide();
+		}
+
+		// Add delete button handler
+		row.find("a." + options.deleteCssClass).click(function(e) {
+			e.preventDefault();
+			// Find the row that will be deleted by this button
+			var row = $(this).parents("." + options.formCssClass);
+			// Remove the parent form containing this button:
+			var formset_to_update = row.parent();
+			//remove nested inlines
+			while (row.next().hasClass('nested-inline-row')) {
+				row.next().remove();
+			}
+			row.remove();
+			change_no_forms(options.prefix, false);
+			// If a post-delete callback was provided, call it with the deleted form:
+			if (options.removed) {
+				options.removed(formset_to_update);
+			}
+
+		});
+		
+		var num_formsets = create_nested_formsets(options.prefix, nextIndex);
+		if(row.is("tr") && num_formsets > 0) {
+			row.addClass("no-bottom-border");
+		}
+
+		// If a post-add callback was supplied, call it with the added form:
+		if (options.added) {
+			options.added(row);
+		}
+
+		nextIndex = nextIndex + 1;
+	};
+	
+	function insertNewRow(prefix, options) {
+		var template = $("#" + prefix + "-empty");
+		var nextIndex = get_no_forms(prefix);
+		var row = prepareRowTemplate(template, prefix, nextIndex, options);
+		// when adding something from a cloned formset the id is the same
+
+		// Insert the new form when it has been fully edited
+		row.insertBefore($(template));
+
+		// Update number of total forms
+		change_no_forms(prefix, true);
+		
+		return row;
+	};
+	
+	function prepareRowTemplate(template, prefix, index, options) {
+		var row = template.clone(true);
+		row.removeClass(options.emptyCssClass).addClass(options.formCssClass).attr("id", prefix + "-" + index);
+		if (row.is("tr")) {
+			// If the forms are laid out in table rows, insert
+			// the remove button into the last table cell:
+			row.children(":last").append('<div><a class="' + options.deleteCssClass + '" href="javascript:void(0)">' + options.deleteText + "</a></div>");
+		} else if (row.is("ul") || row.is("ol")) {
+			// If they're laid out as an ordered/unordered list,
+			// insert an <li> after the last list item:
+			row.append('<li><a class="' + options.deleteCssClass + '" href="javascript:void(0)">' + options.deleteText + "</a></li>");
+		} else {
+			// Otherwise, just insert the remove button as the
+			// last child element of the form's container:
+			row.children(":first").append('<span><a class="' + options.deleteCssClass + '" href="javascript:void(0)">' + options.deleteText + "</a></span>");
+		}
+		row.find("*").each(function() {
+			updateElementIndex(this, prefix, index);
+		});
+		return row;
+	};
+	
+	function updateElementIndex(el, prefix, ndx) {
+		var id_regex = new RegExp("(" + prefix + "-(\\d+|__prefix__))");
+		var replacement = prefix + "-" + ndx;
+		if ($(el).attr("for")) {
+			$(el).attr("for", $(el).attr("for").replace(id_regex, replacement));
+		}
+		if (el.id) {
+			el.id = el.id.replace(id_regex, replacement);
+		}
+		if (el.name) {
+			el.name = el.name.replace(id_regex, replacement);
+		}
 	};
 })(django.jQuery);
 
