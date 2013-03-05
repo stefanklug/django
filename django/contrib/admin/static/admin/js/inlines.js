@@ -262,7 +262,8 @@
 			if (isTabular) {
 				var formset = template.find('.tabular.inline-related tbody tr.' + formset_prefix + '-not-nested').tabularFormset(options);
 				var border_class = (index+1 < nested_inlines.length) ? ' no-bottom-border' : '';
-				var wrapped = $('<tr class="nested-inline-row' + border_class + '"/>').html($('<td colspan="100%"/>').html(template));
+				//setting an arbitryry high colspan is bad design
+				var wrapped = $('<tr class="nested-inline-row' + border_class + '"/>').html($('<td colspan="100"/>').html(template));
 				//insert the formset after the row
 				row.after(wrapped);
 			} else {
